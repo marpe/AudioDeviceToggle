@@ -1,4 +1,5 @@
-﻿namespace AudioDeviceToggle;
+﻿/*
+namespace AudioDeviceToggle;
 
 [Flags]
 public enum DeviceState
@@ -9,3 +10,4 @@ public enum DeviceState
     Unplugged = 8,
     All = Unplugged | NotPresent | Disabled | Active, // 0x0000000F
 }
+*/

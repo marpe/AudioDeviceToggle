@@ -1,21 +1,23 @@
 ﻿using System.Runtime.InteropServices;
-using AudioDeviceToggle;
+using Vanara.InteropServices;
+using Vanara.PInvoke;
 
 // https://github.com/dahall/Vanara/blob/67dc6e5e42cbd08b5a3dd9ff5c3ebd72283876a5/UnitTests/PInvoke/CoreAudio/DeviceTests.cs
 
 // -c "{0.0.0.00000000}.{d0d43511-8c68-4b84-a640-f994f4903609}" "{0.0.0.00000000}.{0dc6ae6b-03e1-43cb-99b7-fec1bda2b5b2}"
 
+Ole32.PROPERTYKEY PKEY_Device_FriendlyName = new(new Guid(0xa45c254e, 0xdf1c, 0x4efd, 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0), 14);
+
 var commands = new List<CommandLineArg>
 {
-    new("list", ["list", "l"], ListDevices),
-    new("set default device by id", ["id", "i"], SetDefaultDeviceById),
-    new("set default device by name", ["name", "n"], SetDefaultDeviceByName),
-    new("cycle devices", ["c"], CycleDevices)
+    new("list", ["list", "l"], (_) => ListDevices()),
+    new("set device by id", ["id", "i"], HandleSetDefaultDeviceById),
+    new("set device by name", ["name", "n"], HandleSetDefaultDeviceByName),
+    new("cycle devices by id", ["ci"], CycleDevicesById),
+    new("cycle devices by name", ["c"], CycleDevicesByName),
 };
 
-commands.Add(new CommandLineArg("help", ["?", "h", "help"], PrintUsage));
-
-ListDevices(args);
+commands.Add(new CommandLineArg("help", ["?", "h", "help"], (_) => PrintUsage()));
 
 foreach (var arg in args)
 {
@@ -29,63 +31,48 @@ foreach (var arg in args)
     }
 }
 
+PrintUsage();
+Console.WriteLine();
+ListDevices();
+
 return;
 
-IMMDevice? GetDefaultAudioEndpoint()
+IEnumerable<CoreAudio.IMMDevice> CreateIMMDeviceCollection(CoreAudio.IMMDeviceEnumerator deviceEnumerator, CoreAudio.EDataFlow direction = CoreAudio.EDataFlow.eAll, CoreAudio.DEVICE_STATE stateMasks = CoreAudio.DEVICE_STATE.DEVICE_STATEMASK_ALL)
 {
-    var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
-    if (PrintIfFailed(enumerator.GetDefaultAudioEndpoint(EDataFlow.eRender, ERole.eMultimedia, out var current), "Failed to get default audio endpoint"))
+    using var deviceCollection = ComReleaserFactory.Create(deviceEnumerator.EnumAudioEndpoints(direction, stateMasks)!);
+    var deviceList = new List<CoreAudio.IMMDevice>();
+    var cnt = deviceCollection.Item.GetCount();
+    for (uint i = 0; i < cnt; i++)
     {
-        return null;
-    }
-
-    return current;
-}
-
-List<IMMDevice> GetDevices()
-{
-    var deviceList = new List<IMMDevice>();
-    var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
-    PrintIfFailed(enumerator.EnumAudioEndpoints(EDataFlow.eRender, DeviceState.Active, out var devices), "Failed to enumerate audio endpoints");
-
-    var hr = devices.GetCount(out var cDevices);
-    if (hr < 0 || cDevices == 0)
-    {
-        PrintIfFailed(hr, "Didn't find any configured multimedia devices");
-        return deviceList;
-    }
-
-    for (var i = 0; i < cDevices; i++)
-    {
-        hr = devices.Item((uint)i, out var device);
-        if (hr < 0 || device == null)
-        {
-            PrintIfFailed(hr, $"Failed to get device #{i}");
-            continue;
-        }
-
-        deviceList.Add(device);
+        deviceCollection.Item.Item(i, out var dev).ThrowIfFailed();
+        deviceList.Add(dev!);
     }
 
     return deviceList;
 }
 
-void ListDevices(string[] args)
+CoreAudio.IMMDevice? GetDefaultAudioEndpoint(CoreAudio.EDataFlow dataFlow, CoreAudio.ERole role)
 {
-    var devices = GetDevices();
+    using var enumerator = ComReleaserFactory.Create(new CoreAudio.IMMDeviceEnumerator());
+    var device = enumerator.Item.GetDefaultAudioEndpoint(dataFlow, role);
+    return device;
+}
 
-    var current = GetDefaultAudioEndpoint();
-    if (current == null)
-    {
-        return;
-    }
+List<CoreAudio.IMMDevice> GetDevices(CoreAudio.EDataFlow flow, CoreAudio.DEVICE_STATE stateMask = CoreAudio.DEVICE_STATE.DEVICE_STATE_ACTIVE)
+{
+    using var enumerator = ComReleaserFactory.Create(new CoreAudio.IMMDeviceEnumerator());
+    return CreateIMMDeviceCollection(enumerator.Item, flow, stateMask).ToList();
+}
 
-    var hr = current.GetId(out var currentId);
-    if (hr < 0)
-    {
-        PrintIfFailed(hr, "Failed to get default audio endpoint id");
-        return;
-    }
+void ListDevices()
+{
+    var flow = CoreAudio.EDataFlow.eRender;
+    var role = CoreAudio.ERole.eMultimedia;
+
+    var devices = GetDevices(flow);
+
+    var current = GetDefaultAudioEndpoint(flow, role);
+    var currentId = current?.GetId()! ?? string.Empty;
 
     var defaultForegroundColor = Console.ForegroundColor;
     Console.WriteLine("Device list:");
@@ -93,61 +80,87 @@ void ListDevices(string[] args)
     for (var i = 0; i < devices.Count; i++)
     {
         var device = devices[i];
-        hr = device.GetId(out var deviceId);
-        if (hr < 0)
-        {
-            PrintIfFailed(hr, $"Failed to read the device id for device #{i}");
-            continue;
-        }
 
-        hr = device.OpenPropertyStore(MMConstants.STGM_READ, out var properties);
-        if (hr < 0)
-        {
-            PrintIfFailed(hr, $"Failed to open the property store for device #{i}");
-            continue;
-        }
-
-        hr = properties.GetValue(MMConstants.PKEY_Device_FriendlyName, out var pv);
-        if (hr < 0)
-        {
-            PrintIfFailed(hr, $"Failed to read the name for device #{i}");
-            continue;
-        }
-
-        hr = device.GetState(out var state);
-        if (hr < 0)
-        {
-            PrintIfFailed(hr, $"Failed to read the device state for device #{i}");
-            continue;
-        }
-
-        var name = Marshal.PtrToStringUni(pv.pwszVal);
+        var name = GetDeviceName(device);
+        var deviceId = device.GetId();
+        var state = device.GetState();
 
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.Write($"[{i} Id: {deviceId}, State: {state}]");
+        Console.Write($"{i + 1}.");
 
-        var isCurrent = currentId.Equals(deviceId, StringComparison.OrdinalIgnoreCase);
-        Console.ForegroundColor = isCurrent ? ConsoleColor.Red : defaultForegroundColor;
-        Console.Write(isCurrent ? " (Current Default)" : "");
+        var isCurrent = currentId != null && currentId.Equals(deviceId, StringComparison.OrdinalIgnoreCase);
 
         Console.ForegroundColor = defaultForegroundColor;
-        Console.WriteLine(" \"{0}\"", name);
+        Console.Write(" \"{0}\"", name);
+
+        Console.ForegroundColor = isCurrent ? ConsoleColor.Red : defaultForegroundColor;
+        Console.WriteLine(isCurrent ? " (Current Default)" : "");
     }
 }
 
-void PrintUsage(string[] args)
+void PrintUsage()
 {
-    Console.WriteLine("Audio Device Toggle");
-    Console.WriteLine("Usage: AudioDeviceToggle.exe [options]");
-    Console.WriteLine("Options:");
+    Console.WriteLine("Usage:");
 
     foreach (var command in commands)
     {
-        Console.WriteLine($"({command.Name}) {string.Join(", ", command.Aliases)}");
+        var defaultForegroundColor = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"{command.Name} ({string.Join(", ", command.Aliases)})");
+        Console.ForegroundColor = defaultForegroundColor;
     }
 }
 
-void CycleDevices(string[] args)
+
+void CycleDevicesByName(string[] args)
+{
+    if (args.Length < 3)
+    {
+        Console.WriteLine("At least two device names must be specified to cycle through.");
+        return;
+    }
+
+    var role = CoreAudio.ERole.eMultimedia;
+    var flow = CoreAudio.EDataFlow.eRender;
+    var defaultDevice = GetDefaultAudioEndpoint(flow, role);
+    var defaultDeviceName = string.Empty;
+    var indexOfCurrentDefaultDevice = -1;
+
+    if (defaultDevice != null)
+    {
+        defaultDeviceName = GetDeviceName(defaultDevice);
+
+        if (!string.IsNullOrEmpty(defaultDeviceName))
+        {
+            for (var i = 1; i < args.Length; i++)
+            {
+                if (defaultDeviceName.Equals(args[i], StringComparison.OrdinalIgnoreCase))
+                {
+                    indexOfCurrentDefaultDevice = i - 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    var nextDeviceName = args[1 + ((indexOfCurrentDefaultDevice + 1) % (args.Length - 1))];
+
+    var defaultForegroundColor = Console.ForegroundColor;
+    Console.WriteLine($"Switching ({role}) device");
+    Console.Write($"from: ");
+    Console.ForegroundColor = ConsoleColor.Magenta;
+    Console.WriteLine(defaultDeviceName);
+    Console.ForegroundColor = defaultForegroundColor;
+    Console.Write("to: ");
+    Console.ForegroundColor = ConsoleColor.Magenta;
+    Console.WriteLine(nextDeviceName);
+    Console.ForegroundColor = defaultForegroundColor;
+
+    SetDefaultDeviceByName(nextDeviceName);
+}
+
+
+void CycleDevicesById(string[] args)
 {
     if (args.Length < 3)
     {
@@ -155,84 +168,37 @@ void CycleDevices(string[] args)
         return;
     }
 
-
-    var defaultDevice = GetDefaultAudioEndpoint();
-    if (defaultDevice == null)
-    {
-        return;
-    }
-
-    if (PrintIfFailed(defaultDevice.GetId(out var defaultDeviceId), "Failed to read default device id"))
-    {
-        return;
-    }
-
+    var role = CoreAudio.ERole.eMultimedia;
+    var flow = CoreAudio.EDataFlow.eRender;
+    var defaultDevice = GetDefaultAudioEndpoint(flow, role);
+    var defaultDeviceId = string.Empty;
     var indexOfCurrentDefaultDevice = -1;
 
-    for (var i = 1; i < args.Length; i++)
+    if (defaultDevice != null)
     {
-        if (defaultDeviceId.Equals(args[i], StringComparison.OrdinalIgnoreCase))
+        defaultDeviceId = defaultDevice.GetId()!;
+
+        if (!string.IsNullOrEmpty(defaultDeviceId))
         {
-            indexOfCurrentDefaultDevice = i - 1;
-            break;
+            for (var i = 1; i < args.Length; i++)
+            {
+                if (defaultDeviceId.Equals(args[i], StringComparison.OrdinalIgnoreCase))
+                {
+                    indexOfCurrentDefaultDevice = i - 1;
+                    break;
+                }
+            }
         }
     }
 
     var nextDeviceId = args[1 + ((indexOfCurrentDefaultDevice + 1) % (args.Length - 1))];
 
-    Console.WriteLine($"Switching default device from id: {defaultDeviceId} to id: {nextDeviceId}");
+    Console.WriteLine($"Switching ({role}) device from id: {defaultDeviceId} to id: {nextDeviceId}");
 
-    SetDefaultDeviceById(["", nextDeviceId]);
+    SetDefaultDeviceById(nextDeviceId, role);
 }
 
-void SetDefaultDeviceByName(string[] args)
-{
-    if (args.Length < 2)
-    {
-        Console.WriteLine("Device name not specified.");
-        return;
-    }
-
-    var deviceName = args[1];
-
-    var devices = GetDevices();
-
-    var device = devices.FirstOrDefault(d =>
-    {
-        if (PrintIfFailed(d.GetId(out var id), "Failed to read device id"))
-        {
-            return false;
-        }
-
-        if (PrintIfFailed(d.OpenPropertyStore(MMConstants.STGM_READ, out var properties), $"Failed to open the property store for device #{id}"))
-        {
-            return false;
-        }
-
-        if (PrintIfFailed(properties.GetValue(MMConstants.PKEY_Device_FriendlyName, out var pv), $"Failed to read the name for device #{id}"))
-        {
-            return false;
-        }
-
-        var name = Marshal.PtrToStringUni(pv.pwszVal);
-        return name.Equals(deviceName, StringComparison.OrdinalIgnoreCase);
-    });
-
-    if (device == null)
-    {
-        Console.WriteLine($"Could not find device with name: {deviceName}");
-        return;
-    }
-
-    if (PrintIfFailed(device.GetId(out var deviceId), "Failed to read device id"))
-    {
-        return;
-    }
-
-    SetDefaultDeviceById(["", deviceId]);
-}
-
-void SetDefaultDeviceById(string[] args)
+void HandleSetDefaultDeviceById(string[] args)
 {
     if (args.Length < 2)
     {
@@ -241,18 +207,69 @@ void SetDefaultDeviceById(string[] args)
     }
 
     var newDeviceId = args[1];
+    var role = CoreAudio.ERole.eMultimedia;
+    SetDefaultDeviceById(newDeviceId, role);
+}
 
-    var policyConfig = (IPolicyConfig)new PolicyConfig();
-    var devices = GetDevices();
-
-    var newDevice = devices.FirstOrDefault(d =>
+void HandleSetDefaultDeviceByName(string[] args)
+{
+    if (args.Length < 2)
     {
-        if (PrintIfFailed(d.GetId(out var id), "Failed to read device id"))
+        Console.WriteLine("Device name not specified.");
+        return;
+    }
+
+    var deviceName = args[1];
+    SetDefaultDeviceByName(deviceName);
+}
+
+void SetDefaultDeviceByName(string deviceName)
+{
+    if (args.Length < 2)
+    {
+        Console.WriteLine("Device name not specified.");
+        return;
+    }
+
+    var flow = CoreAudio.EDataFlow.eRender;
+    var devices = GetDevices(flow);
+
+    var device = devices.FirstOrDefault(d =>
+    {
+        var name = GetDeviceName(d);
+
+        if (string.IsNullOrEmpty(name))
         {
+            Console.WriteLine($"Device has an empty name, skipping.");
             return false;
         }
 
-        return id.Equals(newDeviceId, StringComparison.OrdinalIgnoreCase);
+        return name.Equals(deviceName, StringComparison.OrdinalIgnoreCase);
+    });
+
+    if (device == null)
+    {
+        PrintError($"Could not find device with name: {deviceName}");
+        ListDevices();
+        return;
+    }
+
+    var deviceId = device.GetId()!;
+    var role = CoreAudio.ERole.eMultimedia;
+
+    SetDefaultDeviceById(deviceId, role);
+}
+
+void SetDefaultDeviceById(string newDeviceId, CoreAudio.ERole role)
+{
+    var flow = Vanara.PInvoke.CoreAudio.EDataFlow.eRender;
+    using var policyConfig = ComReleaserFactory.Create(new Vanara.PInvoke.Tests.CoreAudio.IPolicyConfig());
+    var devices = GetDevices(flow);
+
+    var newDevice = devices.FirstOrDefault(d =>
+    {
+        var id = d.GetId()!;
+        return id.ToString()!.Equals(newDeviceId, StringComparison.OrdinalIgnoreCase);
     });
 
     if (newDevice == null)
@@ -261,26 +278,46 @@ void SetDefaultDeviceById(string[] args)
         return;
     }
 
-    if (PrintIfFailed(policyConfig.SetDefaultEndpoint(newDeviceId, ERole.eMultimedia), "Failed to set default endpoint for role Multimedia"))
+    var hr = policyConfig.Item.SetDefaultEndpoint(newDeviceId, role);
+    if (PrintIfFailed(hr.Code, $"Failed to set default endpoint for role {role}"))
     {
         return;
     }
 
-    Console.WriteLine($"Set default endpoint to id: {newDeviceId} for role {ERole.eMultimedia}");
+    var deviceName = GetDeviceName(newDevice);
+    var defaultForegroundColor = Console.ForegroundColor;
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.Write($"Default endpoint changed to ");
+    Console.ForegroundColor = ConsoleColor.White;
+    Console.WriteLine($" \"{deviceName}\"");
+    Console.ForegroundColor = defaultForegroundColor;
+    Console.WriteLine();
 
-    /*
-    foreach (var role in Enum.GetValues<ERole>())
-    {
-        var hr = policyConfig.SetDefaultEndpoint(deviceId, role);
-        if (PrintIfFailed(hr, $"Failed to set default endpoint for role {role}"))
-        {
-            return;
-        }
-
-        Console.WriteLine($"Set default endpoint for role {role}");
-    }*/
+    ListDevices();
 }
 
+bool MatchesArgument(string arg, CommandLineArg command)
+{
+    return Array.Exists(command.Aliases, a => a.Equals(arg, StringComparison.OrdinalIgnoreCase) ||
+                                              $"/{a}".Equals(arg, StringComparison.OrdinalIgnoreCase) ||
+                                              $"-{a}".Equals(arg, StringComparison.OrdinalIgnoreCase) ||
+                                              $"--{a}".Equals(arg, StringComparison.OrdinalIgnoreCase));
+}
+
+
+void PrintError(string message, int hResult = 0)
+{
+    var defaultForegroundColor = Console.ForegroundColor;
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.Write($"Error: ");
+    Console.ForegroundColor = ConsoleColor.White;
+    Console.WriteLine($"{message}{(hResult != 0 ? $" (hr = 0x{hResult:X8})" : string.Empty)}\n");
+    Console.ForegroundColor = defaultForegroundColor;
+}
+
+/*
+ * Any COM method that returns an HRESULT will return a negative value if it failed. This helper method prints the error message along with the HRESULT in hex format if the call failed, and returns true if it failed.
+ */
 bool PrintIfFailed(int hResult, string message)
 {
     if (hResult >= 0)
@@ -288,14 +325,31 @@ bool PrintIfFailed(int hResult, string message)
         return false;
     }
 
-    Console.WriteLine($"{message} (hr = 0x{hResult:X8})");
+    PrintError(message, hResult);
     return true;
 }
 
-bool MatchesArgument(string arg, CommandLineArg command)
+string? GetDeviceNameById(string devId)
 {
-    return Array.Exists(command.Aliases, a => $"/{a}".Equals(arg, StringComparison.OrdinalIgnoreCase) ||
-                                              $"-{a}".Equals(arg, StringComparison.OrdinalIgnoreCase));
+    using var pEnum = ComReleaserFactory.Create(new CoreAudio.IMMDeviceEnumerator());
+    using var pDev = ComReleaserFactory.Create(pEnum.Item.GetDevice(devId)!);
+    using var pProps = ComReleaserFactory.Create(pDev.Item.OpenPropertyStore(STGM.STGM_READ)!);
+    using var pv = new Ole32.PROPVARIANT();
+    try
+    {
+        pProps.Item.GetValue(PKEY_Device_FriendlyName, pv);
+        return pv.pwszVal;
+    }
+    catch
+    {
+    }
+
+    return null;
+}
+
+string? GetDeviceName(CoreAudio.IMMDevice mmDevice)
+{
+    return GetDeviceNameById(mmDevice.GetId()!);
 }
 
 internal record CommandLineArg(string Name, string[] Aliases, Action<string[]> Callback)

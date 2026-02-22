@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿/*
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
 namespace AudioDeviceToggle
@@ -185,3 +186,4 @@ namespace AudioDeviceToggle
         internal FILETIME filetime;
     }
 }
+*/
