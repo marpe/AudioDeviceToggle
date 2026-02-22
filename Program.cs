@@ -10,7 +10,10 @@ using Vanara.PInvoke;
 
 Ole32.PROPERTYKEY PKEY_Device_FriendlyName = new(new Guid(0xa45c254e, 0xdf1c, 0x4efd, 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0), 14);
 
-var audioFile = new AudioFileReader("Long_External15_343.wav");
+var appFolder = AppDomain.CurrentDomain.BaseDirectory;
+var fileName = "Long_External15_343.wav";
+var filePath = Path.Combine(appFolder, fileName);
+var audioFile = new AudioFileReader(filePath);
 var outputDevice = new WaveOutEvent();
 outputDevice.Volume = 0.15f;
 outputDevice.Init(audioFile);
