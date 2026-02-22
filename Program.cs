@@ -7,11 +7,12 @@ using Vanara.PInvoke;
 // https://github.com/dahall/Vanara/blob/67dc6e5e42cbd08b5a3dd9ff5c3ebd72283876a5/UnitTests/PInvoke/CoreAudio/DeviceTests.cs
 
 // -c "{0.0.0.00000000}.{d0d43511-8c68-4b84-a640-f994f4903609}" "{0.0.0.00000000}.{0dc6ae6b-03e1-43cb-99b7-fec1bda2b5b2}"
+// c "Speakers (HyperX Cloud Flight Wireless Headset)" "Speakers (Focusrite USB Audio)"
 
 Ole32.PROPERTYKEY PKEY_Device_FriendlyName = new(new Guid(0xa45c254e, 0xdf1c, 0x4efd, 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0), 14);
 
 var appFolder = AppDomain.CurrentDomain.BaseDirectory;
-var fileName = "Long_External15_343.wav";
+var fileName = @"sound\Long_External15_343.wav";
 var filePath = Path.Combine(appFolder, fileName);
 var audioFile = new AudioFileReader(filePath);
 var outputDevice = new WaveOutEvent();
