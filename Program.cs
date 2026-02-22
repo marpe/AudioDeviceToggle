@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Media;
+using System.Runtime.InteropServices;
+using NAudio.Wave;
 using Vanara.InteropServices;
 using Vanara.PInvoke;
 
@@ -7,6 +9,11 @@ using Vanara.PInvoke;
 // -c "{0.0.0.00000000}.{d0d43511-8c68-4b84-a640-f994f4903609}" "{0.0.0.00000000}.{0dc6ae6b-03e1-43cb-99b7-fec1bda2b5b2}"
 
 Ole32.PROPERTYKEY PKEY_Device_FriendlyName = new(new Guid(0xa45c254e, 0xdf1c, 0x4efd, 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0), 14);
+
+var audioFile = new AudioFileReader("Long_External15_343.wav");
+var outputDevice = new WaveOutEvent();
+outputDevice.Volume = 0.15f;
+outputDevice.Init(audioFile);
 
 var commands = new List<CommandLineArg>
 {
@@ -262,7 +269,7 @@ void SetDefaultDeviceByName(string deviceName)
 
 void SetDefaultDeviceById(string newDeviceId, CoreAudio.ERole role)
 {
-    var flow = Vanara.PInvoke.CoreAudio.EDataFlow.eRender;
+    var flow = CoreAudio.EDataFlow.eRender;
     using var policyConfig = ComReleaserFactory.Create(new Vanara.PInvoke.Tests.CoreAudio.IPolicyConfig());
     var devices = GetDevices(flow);
 
@@ -294,6 +301,16 @@ void SetDefaultDeviceById(string newDeviceId, CoreAudio.ERole role)
     Console.WriteLine();
 
     ListDevices();
+
+    Console.WriteLine("Playing Sound!");
+    outputDevice.Play();
+
+    while (outputDevice.PlaybackState == PlaybackState.Playing)
+    {
+        Thread.Sleep(100);
+    }
+
+    Console.WriteLine("Done!");
 }
 
 bool MatchesArgument(string arg, CommandLineArg command)
