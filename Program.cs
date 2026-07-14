@@ -1,4 +1,4 @@
-﻿using System.Media;
+using System.Media;
 using System.Runtime.InteropServices;
 using NAudio.Wave;
 using Vanara.InteropServices;
@@ -128,6 +128,7 @@ void CycleDevicesByName(string[] args)
     if (args.Length < 3)
     {
         Console.WriteLine("At least two device names must be specified to cycle through.");
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -176,6 +177,7 @@ void CycleDevicesById(string[] args)
     if (args.Length < 3)
     {
         Console.WriteLine("At least two device ids must be specified to cycle through.");
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -214,6 +216,7 @@ void HandleSetDefaultDeviceById(string[] args)
     if (args.Length < 2)
     {
         Console.WriteLine("Device id not specified.");
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -227,6 +230,7 @@ void HandleSetDefaultDeviceByName(string[] args)
     if (args.Length < 2)
     {
         Console.WriteLine("Device name not specified.");
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -239,6 +243,7 @@ void SetDefaultDeviceByName(string deviceName)
     if (args.Length < 2)
     {
         Console.WriteLine("Device name not specified.");
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -262,6 +267,7 @@ void SetDefaultDeviceByName(string deviceName)
     {
         PrintError($"Could not find device with name: {deviceName}");
         ListDevices();
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -286,12 +292,14 @@ void SetDefaultDeviceById(string newDeviceId, CoreAudio.ERole role)
     if (newDevice == null)
     {
         Console.WriteLine($"Could not find device with id: {newDeviceId}");
+        PlayFailureSoundAndExit();
         return;
     }
 
     var hr = policyConfig.Item.SetDefaultEndpoint(newDeviceId, role);
     if (PrintIfFailed(hr.Code, $"Failed to set default endpoint for role {role}"))
     {
+        PlayFailureSoundAndExit();
         return;
     }
 
@@ -371,6 +379,40 @@ string? GetDeviceNameById(string devId)
 string? GetDeviceName(CoreAudio.IMMDevice mmDevice)
 {
     return GetDeviceNameById(mmDevice.GetId()!);
+}
+
+void PlayFailureSoundAndExit()
+{
+    var failFileName = @"sound\homeless_exact1.wav";
+    var failFilePath = Path.Combine(appFolder, failFileName);
+
+    if (File.Exists(failFilePath))
+    {
+        try
+        {
+            using var failAudioFile = new AudioFileReader(failFilePath);
+            using var failOutputDevice = new WaveOutEvent();
+            failOutputDevice.Volume = 0.15f;
+            failOutputDevice.Init(failAudioFile);
+            Console.WriteLine("Playing Failure Sound!");
+            failOutputDevice.Play();
+
+            while (failOutputDevice.PlaybackState == PlaybackState.Playing)
+            {
+                Thread.Sleep(100);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to play failure sound: {ex.Message}");
+        }
+    }
+    else
+    {
+        Console.WriteLine($"Error: Failure sound file not found at: {failFilePath}");
+    }
+
+    Environment.Exit(1);
 }
 
 internal record CommandLineArg(string Name, string[] Aliases, Action<string[]> Callback)
