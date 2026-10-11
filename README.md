@@ -5,7 +5,15 @@ A Windows CLI tool to list, set, and cycle default audio output devices.
 ## Requirements
 
 - Windows
-- .NET 10.0
+- .NET 10.0 SDK (to build only — the published exe is self-contained)
+
+## Building
+
+```
+dotnet publish -c Release
+```
+
+Produces a single self-contained `AudioDeviceToggle.exe` in `bin\Release\net10.0-windows\win-x64\publish\`. Sounds and the icon are embedded, so the exe can be copied anywhere on its own.
 
 ## Usage
 
@@ -24,7 +32,9 @@ AudioDeviceToggle <command> [args...]
 | cycle devices by name | `c` | Cycle through devices by name |
 | help | `?`, `h`, `help` | Show usage |
 
-Aliases can be prefixed with `/`, `-`, or `--`.
+Aliases can be prefixed with `/`, `-`, or `--`. The command must be the first argument.
+
+Errors are written to stderr, play a failure sound, and exit with code 1 (including unknown commands).
 
 ### Examples
 
@@ -43,6 +53,12 @@ Cycle between two devices by name (switches to the next one each time):
 AudioDeviceToggle c "Speakers (HyperX Cloud Flight Wireless Headset)" "Speakers (Focusrite USB Audio)"
 ```
 
+Names match exactly (case-insensitive) first; otherwise a partial name works as long as it matches exactly one device. This keeps shortcuts working when Windows renames a device (e.g. `Headphones (2- HyperX ...)`):
+```
+AudioDeviceToggle c HyperX Focusrite
+```
+IDs always require an exact match.
+
 Cycle between devices by ID:
 ```
 AudioDeviceToggle ci "{0.0.0.00000000}.{d0d43511-...}" "{0.0.0.00000000}.{0dc6ae6b-...}"
@@ -50,7 +66,7 @@ AudioDeviceToggle ci "{0.0.0.00000000}.{d0d43511-...}" "{0.0.0.00000000}.{0dc6ae
 
 ## How it works
 
-Uses the undocumented Windows COM interface `IPolicyConfig` to set the default audio render endpoint, and the Windows Core Audio API (`IMMDeviceEnumerator`) to enumerate devices. After switching, a short confirmation sound is played on the new device.
+Uses the undocumented Windows COM interface `IPolicyConfig` to set the default audio render endpoint (Console and Multimedia roles — the same as "Set as Default Device" in the Sound control panel; the Communications device is left unchanged), and the Windows Core Audio API (`IMMDeviceEnumerator`) to enumerate devices. After switching, a short confirmation sound is played on the new device.
 
 ## Dependencies
 
