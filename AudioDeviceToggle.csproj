@@ -16,7 +16,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="NAudio" Version="2.2.1"/>
+        <!-- NAudio.WinMM, not the NAudio meta-package: on -windows TFMs the meta-package pulls in WinForms (~14 MB). -->
+        <PackageReference Include="NAudio.WinMM" Version="2.2.1"/>
         <PackageReference Include="Vanara.PInvoke.CoreAudio" Version="5.0.0"/>
     </ItemGroup>
 
