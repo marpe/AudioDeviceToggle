@@ -10,15 +10,16 @@
 
     <PropertyGroup>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-        <PublishSingleFile>true</PublishSingleFile>
-        <SelfContained>true</SelfContained>
-        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <PublishAot>true</PublishAot>
+        <OptimizationPreference>Size</OptimizationPreference>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <!-- Required by the LibraryImport / GeneratedComInterface source generators. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
         <!-- NAudio.WinMM, not the NAudio meta-package: on -windows TFMs the meta-package pulls in WinForms (~14 MB). -->
         <PackageReference Include="NAudio.WinMM" Version="2.2.1"/>
-        <PackageReference Include="Vanara.PInvoke.CoreAudio" Version="5.0.0"/>
     </ItemGroup>
 
     <ItemGroup>

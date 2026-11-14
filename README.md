@@ -5,7 +5,7 @@ A Windows CLI tool to list, set, and cycle default audio output devices.
 ## Requirements
 
 - Windows
-- .NET 10.0 SDK (to build only — the published exe is self-contained)
+- .NET 10.0 SDK and the Visual Studio "Desktop development with C++" workload (to build only — the published exe has no runtime dependencies)
 
 ## Building
 
@@ -13,7 +13,7 @@ A Windows CLI tool to list, set, and cycle default audio output devices.
 dotnet publish -c Release
 ```
 
-Produces a single self-contained `AudioDeviceToggle.exe` in `bin\Release\net10.0-windows\win-x64\publish\`. Sounds and the icon are embedded, so the exe can be copied anywhere on its own.
+Produces a single Native AOT `AudioDeviceToggle.exe` (~2 MB) in `bin\Release\net10.0-windows\win-x64\publish\`. Sounds and the icon are embedded, so the exe can be copied anywhere on its own.
 
 ## Usage
 
@@ -71,4 +71,3 @@ Uses the undocumented Windows COM interface `IPolicyConfig` to set the default a
 ## Dependencies
 
 - [NAudio](https://github.com/naudio/NAudio) — audio playback
-- [Vanara.PInvoke.CoreAudio](https://github.com/dahall/Vanara) — Windows Core Audio API bindings

@@ -10,8 +10,10 @@ Windows-only .NET 10 CLI that lists, sets, and cycles the default audio output d
 dotnet build -c Release                # build
 dotnet run -- list                     # run with args (read-only command)
 dotnet test AudioDeviceToggle.slnx     # runs test projects in the solution (none exist yet)
-dotnet publish -c Release              # single self-contained exe -> bin\Release\net10.0-windows\win-x64\publish\
+dotnet publish -c Release              # Native AOT exe (~2 MB) -> bin\Release\net10.0-windows\win-x64\publish\
 ```
+
+Publishing is Native AOT, which needs the MSVC linker (Visual Studio "Desktop development with C++" workload). The ILCompiler targets invoke `vswhere.exe` by name, so if publish fails with "'vswhere.exe' is not recognized", put `%ProgramFiles(x86)%\Microsoft Visual Studio\Installer` on PATH. `dotnet build`/`dotnet run` don't need this.
 
 There are no test projects and no linter configured. Any command other than `list`/`help` changes the machine's real default audio device and plays a sound — don't run them casually to "verify" changes.
 
@@ -22,8 +24,9 @@ Releases: pushing a `v*` tag (e.g. `git tag v1.2.0` then `git push origin v1.2.0
 ## Architecture
 
 - `Program.cs` — top-level statements. Commands are a `List<CommandLineArg>` (name, aliases, args hint, callback); `help` is appended after the initializer because `PrintUsage` reads the list. Device lookup goes through a `DeviceKey` (which field to match, whether partial substring matching is allowed: names yes, ids no). Cycling resolves candidates to device ids before comparing, so partial names still identify the current device.
-- `AudioDevices.cs` — the only place that touches Core Audio COM (via Vanara). Every COM object is wrapped in `ComReleaserFactory.Create(...)` and released before returning; callers only see plain `AudioDevice(Id, Name)` records. `SetDefault` sets the eConsole and eMultimedia roles only (eCommunications deliberately untouched).
-- `IPolicyConfig.cs` — undocumented `IPolicyConfig` COM interface. COM dispatches by vtable slot: never reorder or remove methods, even unused ones.
+- `AudioDevices.cs` — the only place that uses the Core Audio COM interfaces; callers only see plain `AudioDevice(Id, Name)` records. `SetDefault` sets the eConsole and eMultimedia roles only (eCommunications deliberately untouched).
+- `CoreAudio.cs` / `IPolicyConfig.cs` — hand-written COM bindings (`IMMDeviceEnumerator` & co., and the undocumented `IPolicyConfig`). They must use `[GeneratedComInterface]` + `Com.CreateInstance<T>`, not `[ComImport]`/`new` on a coclass: built-in COM interop doesn't exist under Native AOT and fails only at runtime. COM dispatches by vtable slot: never reorder or remove methods before the last one called, even unused ones.
+- Any new dependency must be AOT-compatible — check publish output for IL2xxx/IL3xxx warnings, which signal runtime failures.
 
 ## Conventions
 

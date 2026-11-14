@@ -1,7 +1,5 @@
 using System.Runtime.InteropServices;
-using Vanara.PInvoke;
-using static Vanara.PInvoke.CoreAudio;
-using static Vanara.PInvoke.Ole32;
+using System.Runtime.InteropServices.Marshalling;
 
 namespace AudioDeviceToggle.Interop;
 
@@ -15,45 +13,42 @@ internal enum DeviceShareMode
 }
 
 /// <summary>Undocumented COM-interface IPolicyConfig. Use for set default audio render endpoint.</summary>
-[ComImport, Guid("f8679f50-850a-41cf-9c72-430f290290c8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown), CoClass(typeof(PolicyConfig))]
-internal interface IPolicyConfig
+[GeneratedComInterface(StringMarshalling = StringMarshalling.Utf16), Guid("f8679f50-850a-41cf-9c72-430f290290c8")]
+internal partial interface IPolicyConfig
 {
     [PreserveSig]
-    HRESULT GetMixFormat([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [Out] out IntPtr ppFormat);
+    int GetMixFormat(string pszDeviceName, out nint ppFormat);
 
     [PreserveSig]
-    HRESULT GetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bDefault, [Out] out IntPtr ppFormat);
+    int GetDeviceFormat(string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bDefault, out nint ppFormat);
 
     [PreserveSig]
-    HRESULT ResetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName);
+    int ResetDeviceFormat(string pszDeviceName);
 
     [PreserveSig]
-    HRESULT SetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [In] IntPtr pEndpointFormat, [In] IntPtr mixFormat);
+    int SetDeviceFormat(string pszDeviceName, nint pEndpointFormat, nint mixFormat);
 
     [PreserveSig]
-    HRESULT GetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bDefault, out long pmftDefaultPeriod, out long pmftMinimumPeriod);
+    int GetProcessingPeriod(string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bDefault, out long pmftDefaultPeriod, out long pmftMinimumPeriod);
 
     [PreserveSig]
-    HRESULT SetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, long pmftPeriod);
+    int SetProcessingPeriod(string pszDeviceName, long pmftPeriod);
 
     [PreserveSig]
-    HRESULT GetShareMode([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [Out] out DeviceShareMode pMode);
+    int GetShareMode(string pszDeviceName, out DeviceShareMode pMode);
 
     [PreserveSig]
-    HRESULT SetShareMode([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, in DeviceShareMode mode);
+    int SetShareMode(string pszDeviceName, in DeviceShareMode mode);
 
     [PreserveSig]
-    HRESULT GetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bFxStore, in PROPERTYKEY key, [Out] PROPVARIANT pv);
+    int GetPropertyValue(string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bFxStore, in PROPERTYKEY key, nint pv);
 
     [PreserveSig]
-    HRESULT SetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bFxStore, in PROPERTYKEY key, [Out] PROPVARIANT pv);
+    int SetPropertyValue(string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bFxStore, in PROPERTYKEY key, nint pv);
 
     [PreserveSig]
-    HRESULT SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.U4)] ERole role);
+    int SetDefaultEndpoint(string pszDeviceName, ERole role);
 
     [PreserveSig]
-    HRESULT SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bVisible);
+    int SetEndpointVisibility(string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bVisible);
 }
-
-[ComImport, Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"), ClassInterface(ClassInterfaceType.None)]
-internal class PolicyConfig { }

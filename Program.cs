@@ -144,7 +144,7 @@ void SetDefaultDeviceBy(DeviceKey key, string value)
     }
 
     var hr = AudioDevices.SetDefault(device.Id);
-    if (hr.Failed)
+    if (hr < 0)
     {
         Fail($"Failed to set default endpoint (hr = 0x{(uint)hr:X8})");
     }
