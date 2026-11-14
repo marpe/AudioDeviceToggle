@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore AudioDeviceToggle.slnx
+
+      # Runs every test project in the solution; a no-op until one is added.
+      - name: Test
+        run: dotnet test AudioDeviceToggle.slnx -c Release --no-restore
+
+      - name: Publish
+        run: dotnet publish AudioDeviceToggle.csproj -c Release --no-restore -o publish
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AudioDeviceToggle-win-x64
+          path: publish/AudioDeviceToggle.exe
+          if-no-files-found: error
