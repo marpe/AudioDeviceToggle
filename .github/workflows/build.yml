@@ -3,12 +3,15 @@ name: Build
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write # create releases on tag pushes
 
     steps:
       - uses: actions/checkout@v7
@@ -24,11 +27,29 @@ jobs:
       - name: Test
         run: dotnet test AudioDeviceToggle.slnx -c Release --no-restore
 
+      # Tag builds stamp the exe with the tag's version (v1.2.0 -> 1.2.0); other builds keep the project default.
       - name: Publish
-        run: dotnet publish AudioDeviceToggle.csproj -c Release --no-restore -o publish
+        run: |
+          $versionArgs = @()
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $versionArgs += "-p:Version=$($env:GITHUB_REF_NAME.TrimStart('v'))"
+          }
+          dotnet publish AudioDeviceToggle.csproj -c Release --no-restore -o publish @versionArgs
 
       - uses: actions/upload-artifact@v7
         with:
           name: AudioDeviceToggle-win-x64
           path: publish/AudioDeviceToggle.exe
           if-no-files-found: error
+
+      # Tags with a suffix (v1.2.0-beta.1) are published as pre-releases.
+      - name: Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $prereleaseArgs = @()
+          if ($env:GITHUB_REF_NAME.Contains('-')) {
+            $prereleaseArgs += '--prerelease'
+          }
+          gh release create $env:GITHUB_REF_NAME publish/AudioDeviceToggle.exe --verify-tag --generate-notes @prereleaseArgs

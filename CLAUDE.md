@@ -17,6 +17,8 @@ There are no test projects and no linter configured. Any command other than `lis
 
 CI (`.github/workflows/build.yml`, windows-latest) restores, runs `dotnet test` on the solution, publishes, and uploads only `AudioDeviceToggle.exe` as the `AudioDeviceToggle-win-x64` artifact. New test projects must be added to `AudioDeviceToggle.slnx` to run in CI.
 
+Releases: pushing a `v*` tag (e.g. `git tag v1.2.0` then `git push origin v1.2.0`) stamps the exe with that version and creates a GitHub release with the exe attached and generated notes. Tags containing `-` (`v1.2.0-beta.1`) become pre-releases. Branch/PR builds never create releases.
+
 ## Architecture
 
 - `Program.cs` — top-level statements. Commands are a `List<CommandLineArg>` (name, aliases, args hint, callback); `help` is appended after the initializer because `PrintUsage` reads the list. Device lookup goes through a `DeviceKey` (which field to match, whether partial substring matching is allowed: names yes, ids no). Cycling resolves candidates to device ids before comparing, so partial names still identify the current device.
