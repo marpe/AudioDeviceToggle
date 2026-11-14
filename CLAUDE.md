@@ -26,10 +26,10 @@ Releases: pushing a `v*` tag (e.g. `git tag v1.2.0` then `git push origin v1.2.0
 - `Program.cs` — top-level statements. Commands are a `List<CommandLineArg>` (name, aliases, args hint, callback); `help` is appended after the initializer because `PrintUsage` reads the list. Device lookup goes through a `DeviceKey` (which field to match, whether partial substring matching is allowed: names yes, ids no). Cycling resolves candidates to device ids before comparing, so partial names still identify the current device.
 - `AudioDevices.cs` — the only place that uses the Core Audio COM interfaces; callers only see plain `AudioDevice(Id, Name)` records. `SetDefault` sets the eConsole and eMultimedia roles only (eCommunications deliberately untouched).
 - `CoreAudio.cs` / `IPolicyConfig.cs` — hand-written COM bindings (`IMMDeviceEnumerator` & co., and the undocumented `IPolicyConfig`). They must use `[GeneratedComInterface]` + `Com.CreateInstance<T>`, not `[ComImport]`/`new` on a coclass: built-in COM interop doesn't exist under Native AOT and fails only at runtime. COM dispatches by vtable slot: never reorder or remove methods before the last one called, even unused ones.
-- Any new dependency must be AOT-compatible — check publish output for IL2xxx/IL3xxx warnings, which signal runtime failures.
+- Any new dependency must be AOT-compatible — check publish output for IL2xxx/IL3xxx warnings, but also test the published exe: P/Invoke code that passes classes and relies on the JIT pinning them (e.g. NAudio) breaks under AOT with no warning.
 
 ## Conventions
 
 - Error handling: `Fail()` is `[DoesNotReturn]` — writes to stderr, plays the failure sound, exits 1. One top-level `try/catch` routes unexpected exceptions (e.g. COM errors) through `Fail`; don't add per-command catches.
 - Sounds are embedded resources with `LogicalName="%(Filename)%(Extension)"`, loaded by bare filename via `GetManifestResourceStream`. The published exe must stay standalone (no loose files).
-- Reference `NAudio.WinMM`, not the `NAudio` meta-package — on `-windows` TFMs the meta-package drags in WinForms (~14 MB).
+- `WavePlayer.cs` plays sounds with winmm `PlaySound` (PCM 8/16-bit only), applying volume by scaling samples. NAudio was removed because its `WaveOutEvent` fails silently under AOT — the error only surfaces via `PlaybackStopped`. Lesson: "no exception" is not proof of playback; verify by timing (`bogus` command plays the ~2.1 s failure sound).

@@ -67,7 +67,3 @@ AudioDeviceToggle ci "{0.0.0.00000000}.{d0d43511-...}" "{0.0.0.00000000}.{0dc6ae
 ## How it works
 
 Uses the undocumented Windows COM interface `IPolicyConfig` to set the default audio render endpoint (Console and Multimedia roles — the same as "Set as Default Device" in the Sound control panel; the Communications device is left unchanged), and the Windows Core Audio API (`IMMDeviceEnumerator`) to enumerate devices. After switching, a short confirmation sound is played on the new device.
-
-## Dependencies
-
-- [NAudio](https://github.com/naudio/NAudio) — audio playback

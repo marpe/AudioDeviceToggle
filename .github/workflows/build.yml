@@ -23,11 +23,9 @@ jobs:
       - name: Restore
         run: dotnet restore AudioDeviceToggle.slnx
 
-      # Runs every test project in the solution; a no-op until one is added.
       - name: Test
         run: dotnet test AudioDeviceToggle.slnx -c Release --no-restore
 
-      # Tag builds stamp the exe with the tag's version (v1.2.0 -> 1.2.0); other builds keep the project default.
       - name: Publish
         run: |
           $versionArgs = @()
@@ -42,7 +40,6 @@ jobs:
           path: publish/AudioDeviceToggle.exe
           if-no-files-found: error
 
-      # Tags with a suffix (v1.2.0-beta.1) are published as pre-releases.
       - name: Release
         if: github.ref_type == 'tag'
         env:

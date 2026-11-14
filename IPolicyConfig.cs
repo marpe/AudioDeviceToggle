@@ -3,16 +3,13 @@ using System.Runtime.InteropServices.Marshalling;
 
 namespace AudioDeviceToggle.Interop;
 
-// Adapted from Vanara's CoreAudio unit tests.
-// COM dispatches by vtable slot, so every method must stay declared in this order even if unused.
-
 internal enum DeviceShareMode
 {
     Shared,
     Exclusive
 }
 
-/// <summary>Undocumented COM-interface IPolicyConfig. Use for set default audio render endpoint.</summary>
+// Undocumented Windows interface. COM dispatches by vtable slot, so every method must stay declared in this order even if unused.
 [GeneratedComInterface(StringMarshalling = StringMarshalling.Utf16), Guid("f8679f50-850a-41cf-9c72-430f290290c8")]
 internal partial interface IPolicyConfig
 {

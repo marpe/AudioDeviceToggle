@@ -3,8 +3,7 @@ using System.Runtime.InteropServices.Marshalling;
 
 namespace AudioDeviceToggle.Interop;
 
-// Minimal Core Audio (mmdeviceapi.h) and property store bindings. Source-generated COM ([GeneratedComInterface])
-// rather than [ComImport], because built-in COM interop is unavailable under Native AOT.
+// [GeneratedComInterface], not [ComImport]: built-in COM interop is unavailable under Native AOT.
 // COM dispatches by vtable slot, so methods stay in header order; trailing methods that are never called are omitted.
 
 internal enum EDataFlow

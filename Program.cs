@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using AudioDeviceToggle;
-using NAudio.Wave;
 
 const float SoundVolume = 0.15f;
 const string SuccessSound = "Long_External15_343.wav";
@@ -19,10 +18,8 @@ var commands = new List<CommandLineArg>
     new("cycle devices by name", ["c"], "<name> <name> [...]", a => CycleDevices(a, byName)),
 };
 
-// Added separately: PrintUsage reads `commands`, which can't be referenced inside its own initializer.
 commands.Add(new CommandLineArg("help", ["?", "h", "help"], "", _ => PrintUsage()));
 
-// Single catch point: anything unexpected (e.g. COM errors) still reports and plays the failure sound.
 try
 {
     if (args.Length == 0)
@@ -116,7 +113,6 @@ void CycleDevices(string[] candidates, DeviceKey key)
     SetDefaultDeviceBy(key, next);
 }
 
-// Exact match first; if the key allows it, falls back to a substring match that must hit exactly one device.
 AudioDevice? FindDevice(IReadOnlyList<AudioDevice> devices, DeviceKey key, string value)
 {
     var exact = devices.FirstOrDefault(d => key.Select(d).Equals(value, StringComparison.OrdinalIgnoreCase));
@@ -161,7 +157,6 @@ void SetDefaultDeviceBy(DeviceKey key, string value)
     Console.WriteLine("Done!");
 }
 
-// Aliases may be prefixed with '/', '-' or '--'.
 bool MatchesArgument(string arg, CommandLineArg command)
 {
     return command.Aliases.Contains(arg.TrimStart('/', '-'), StringComparer.OrdinalIgnoreCase);
@@ -176,9 +171,6 @@ void WriteColored(string text, ConsoleColor color, bool newline = false, TextWri
     Console.ForegroundColor = previous;
 }
 
-/*
- * Prints the error to stderr, plays the failure sound and exits with code 1.
- */
 [DoesNotReturn]
 void Fail(string message)
 {
@@ -198,26 +190,15 @@ void Fail(string message)
     Environment.Exit(1);
 }
 
-/*
- * Plays a WAV embedded in the assembly (see EmbeddedResource in the .csproj) and blocks until playback finishes.
- */
 void PlayEmbeddedSound(string resourceName)
 {
     using var stream = typeof(CommandLineArg).Assembly.GetManifestResourceStream(resourceName)
                        ?? throw new FileNotFoundException($"Embedded sound not found: {resourceName}");
-    using var reader = new WaveFileReader(stream);
-    using var outputDevice = new WaveOutEvent();
-    outputDevice.Volume = SoundVolume;
-    outputDevice.Init(reader);
-    outputDevice.Play();
-
-    while (outputDevice.PlaybackState == PlaybackState.Playing)
-    {
-        Thread.Sleep(100);
-    }
+    var wav = new byte[stream.Length];
+    stream.ReadExactly(wav);
+    WavePlayer.Play(wav, SoundVolume);
 }
 
 internal record CommandLineArg(string Name, string[] Aliases, string Args, Action<string[]> Callback);
 
-// Which AudioDevice field a command matches its arguments against.
 internal record DeviceKey(string Kind, Func<AudioDevice, string> Select, bool AllowPartialMatch);

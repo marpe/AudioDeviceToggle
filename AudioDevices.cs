@@ -5,12 +5,9 @@ namespace AudioDeviceToggle;
 
 internal record AudioDevice(string Id, string Name);
 
-/// <summary>
-/// Core Audio COM access for render (output) devices. Callers only ever see plain <see cref="AudioDevice"/> records.
-/// </summary>
 internal static class AudioDevices
 {
-    // HRESULT_FROM_WIN32(ERROR_NOT_FOUND): returned when no device exists for the requested flow/role.
+    // HRESULT_FROM_WIN32(ERROR_NOT_FOUND)
     private const int E_NOTFOUND = unchecked((int)0x80070490);
 
     private const uint DEVICE_STATE_ACTIVE = 0x1;
@@ -40,7 +37,6 @@ internal static class AudioDevices
         return devices;
     }
 
-    /// <returns>The default render device, or <c>null</c> if no output device is active.</returns>
     public static AudioDevice? GetDefault()
     {
         var enumerator = Com.CreateInstance<IMMDeviceEnumerator>(CLSID_MMDeviceEnumerator);
